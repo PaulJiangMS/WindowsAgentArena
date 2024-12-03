@@ -713,3 +713,20 @@ class PythonController:
         except requests.exceptions.RequestException as e:
             logger.error("An error occurred while trying to execute the command: %s", e)
             return None
+        
+    def run_agent(self, agent_name, instruction):
+        """
+        Run the agent .
+        """
+        # Prepare the data payload
+        payload = {
+            "agent": agent_name,
+            "instruction": instruction
+        }
+
+        response = requests.post(self.http_server + "/run_server_agent", json=payload)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.error("Failed to run agent. Status code: %d", response)
+            return None

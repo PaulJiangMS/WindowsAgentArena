@@ -5,13 +5,21 @@ SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 
 # Path to the JSON configuration file
 CONFIG_FILE="$SCRIPT_DIR/../AgentRepoConfig.json"
+AGENTS_JSON_FILE="$SCRIPT_DIR/../src/win-arena-container/vm/setup/agents.json"
 CLIENT_AGENT_FOLDER="$SCRIPT_DIR/../src/win-arena-container/client/mm_agents"
 SERVER_AGENT_FOLDER="$SCRIPT_DIR/../src/win-arena-container/vm/setup/mm_agents"
-AGENTS_JSON_FILE="$SCRIPT_DIR/../src/win-arena-container/vm/setup/agents.json"
+WIN_STORAGE="$SCRIPT_DIR/../src/win-arena-container/vm/storage"
 
 # Remove the AGENTS_JSON_FILE if it exists
 if [ -f "$AGENTS_JSON_FILE" ]; then
+    echo "Remove $AGENTS_JSON_FILE."
     rm "$AGENTS_JSON_FILE"
+fi
+
+# Remove the WIN_STORAGE if it exists
+if [ -d "$WIN_STORAGE" ]; then
+    echo "Remove $WIN_STORAGE."
+    sudo rm -r $WIN_STORAGE
 fi
 
 # Check if jq is installed
@@ -27,9 +35,7 @@ server_repos=()
 # Read the JSON file and clone the repositories
 repos=$(jq -c '.repositories[]' "$CONFIG_FILE")
 for repo in $repos; do
-    REPO_URL=$(echo "$repo" | jq -r '.url')
     REPO_DIR_NAME=$(echo "$repo" | jq -r '.name')
-    REPO_FOLDER=$(echo "$repo" | jq -r '.foldertocopy')
     RUNNING_MODE=$(echo "$repo" | jq -r '.runningmode')
 
     # Set the target folder based on the running mode
@@ -46,20 +52,8 @@ for repo in $repos; do
     REPO_DIR="$TARGET_FOLDER/$REPO_DIR_NAME"
 
     if [ -d "$REPO_DIR" ]; then
-        echo "Directory $REPO_DIR already exists. Skipping clone."
-    else
-        echo "Cloning $REPO_URL into $REPO_DIR..."
-        git clone --no-checkout "$REPO_URL" "$REPO_DIR"
-        pushd "$REPO_DIR"
-        git sparse-checkout init --cone
-        echo "$REPO_FOLDER" > .git/info/sparse-checkout
-        git checkout
-        popd
+        echo "Remove $REPO_DIR."
+        # Remove the repository directory
+        sudo rm -r $REPO_DIR
     fi
 done
-
-# Print the server_repos array
-printf '%s\n' "Repo is : ${server_repos[@]}"
-
-# Create the agents.json file with the list of server repositories
-jq -n --argjson repos "$(printf '%s\n' "${server_repos[@]}" | jq -s .)" '{"server_repositories": $repos}' > "$AGENTS_JSON_FILE"
