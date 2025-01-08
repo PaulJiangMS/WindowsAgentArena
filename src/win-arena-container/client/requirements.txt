@@ -67,3 +67,7 @@ ultralytics
 py7zr
 anthropic
 einops
+fastapi
+uvicorn
+websockets
+opencensus-ext-azure
