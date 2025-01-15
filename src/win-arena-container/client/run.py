@@ -127,17 +127,21 @@ def config() -> argparse.Namespace:
     # agent setting
     parser.add_argument("--agent_settings", type=str, default='', help="JSON string of agent settings in key-value pairs")
 
+    # Arena Service #
+    parser.add_argument("--instruction", type=str, default="check microsoft stock price")
+
     args, unknownargs = parser.parse_known_args()
 
     return args
 
-def test(
+def execute_for_deephelp(
         args: argparse.Namespace,
         test_all_meta: dict
 ) -> None:
     scores = []
     max_steps = args.max_steps
 
+    input_instructions = args.instruction
     # log args
     logger.info("Args: %s", args)
     # set wandb project
@@ -175,8 +179,12 @@ def test(
     else:
         agent_settings = {}
 
+    # set agent_name if agent_settings contains it.
+    if agent_settings is not None and len(agent_settings) > 0:
+        cfg_args["agent_name"] = agent_settings.get("agent_name", cfg_args["agent_name"])
+            
     if cfg_args["agent_name"] == "navi":
-        if cfg_args["som_origin"] in ["a11y", "omni", "mixed-omni"]:
+        if cfg_args["som_origin"] in ["internal", "a11y", "mixed", "omni", "mixed-omni"]:
             som_config = None
         elif cfg_args["som_origin"] in ["oss", "mixed-oss"]:
             som_config = {
@@ -193,15 +201,12 @@ def test(
             }
         
         agent = NaviAgent(
-            server="oai",
             model=args.model,
             som_config=som_config,
             som_origin=args.som_origin,
-            temperature=args.temperature
+            temperature=args.temperature,
+            agent_settings=agent_settings
         )
-    elif cfg_args["agent_name"] == "claude":
-        from mm_agents.claude.agent import ClaudeAgent
-        agent = ClaudeAgent()
     else:
         from mm_agents.server_agents.agent import ServerAgent
         if agent_settings is not None and len(agent_settings) > 0:
@@ -219,96 +224,69 @@ def test(
         a11y_backend=args.a11y_backend
     )
 
-    for domain in tqdm(test_all_meta, desc="Domain"):
-        for example_id in tqdm(test_all_meta[domain], desc="Example", leave=False):
-            
-            if args.diff_lvl == "normal":
-                logger.info(f"Windows Agent Arena: Starting on NORMAL difficulty")
-                config_file = os.path.join(args.test_config_base_dir, f"examples/{domain}/{example_id}.json")
-                logger.info(f"\nTESTING ON TASK CONFIG PATH: {config_file}")
-
-            elif args.diff_lvl == "hard":
-                logger.info(f"Windows Agent Arena: Starting on HARDER difficulty")
-                
-                config_file = os.path.join(args.test_config_base_dir, f"examples_noctxt/{domain}/{example_id}.json")
-                logger.info(f"\nTESTING ON TASK CONFIG PATH: {config_file}")
-
-            else:
-                sys.exit("Invalid value for arg --diff_lvl. Choose 'normal' or 'hard'.")
-
-            with open(config_file, "r", encoding="utf-8") as f:
-                example = json.load(f)
-
-            logger.info(f"[Domain]: {domain}")
-            logger.info(f"[Example ID]: {example_id}")
-
-            instruction = example["instruction"]
-
-            logger.info(f"[Instruction]: {instruction}")
-            # wandb each example config settings
-            cfg_args["instruction"] = instruction
-            cfg_args["start_time"] = datetime.datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
-            # run.config.update(cfg_args)
-
-            example_result_dir = os.path.join(
+    example_json = {
+        "id": "customs-task-from-deep-hlp-client",
+          "snapshot": "chrome",
+            "instruction": input_instructions,
+            "trajectory": "trajectories/",
+            "related_apps": [
+                "chrome"
+            ],
+            "evaluator": {
+            "func": "is_expected_tabs",
+            "result": {
+                "type": "open_tabs_info"
+            },
+            "expected": {
+                "type": "rule",
+                "rules": {
+                    "type": "url",
+                    "urls": [
+                    "https://www.google.com"
+                    ]
+                }
+            }
+        }
+        }
+    example_id = example_json["id"]
+    example_result_dir = os.path.join(
                 args.result_dir,
                 args.action_space,
                 args.observation_type,
                 args.model,
                 args.trial_id,
-                domain,
+                "chrome",
                 example_id
             )
-            os.makedirs(example_result_dir, exist_ok=True)
-            
-            # Example Logging Config {{{
-            os.makedirs(os.path.join(example_result_dir, "logs"), exist_ok=True)
-            task_log_handler = logging.FileHandler(os.path.join(example_result_dir, "logs", "task-{}-{}.log".format(args.worker_id, datetime_str)), encoding="utf-8")
-            task_log_handler.setLevel(logging.DEBUG)
-            task_log_handler.setFormatter(formatter)
-            root_logger.addHandler(task_log_handler)
-            # }}} Example Logging Config
-            
-            # example start running
-            try:
-                lib_run_single.run_single_example(agent, env, example, max_steps, instruction, args, example_result_dir,
-                                                  scores)
-            except Exception as e:
-                logger.error(f"Exception in {domain}/{example_id}: {e}")
-                error_traceback = traceback.format_exc()
-                logger.error(error_traceback)
-                # env.controller.end_recording(os.path.join(example_result_dir, "recording.mp4"))
-                # Write error details to traj.jsonl
-                with open(os.path.join(example_result_dir, "traj.jsonl"), "a") as f:
-                    f.write(json.dumps({
-                        "Error": f"Exception in {domain}/{example_id}",
-                        "Exception": str(e),
-                        "Traceback": error_traceback,
-                    }))
-                    f.write("\n")
-                
-                # Write error details with stack trace to traj.html
-                with open(os.path.join(example_result_dir, "traj.html"), "a") as f:
-                    f.write(f"<h1>Error: Exception in {domain}/{example_id}</h1>")
-                    f.write(f"<p>{e}</p>")
-                    f.write("<pre>")
-                    f.write(error_traceback)
-                    f.write("</pre>")
-            else:
-                logger.info(f"Finished {domain}/{example_id}")
-            finally:
-                # Cleanup task log handler
-                root_logger.removeHandler(task_log_handler)
-                task_log_handler.close()
+    
+    os.makedirs(example_result_dir, exist_ok=True)
+    #example start running
+    try:
+        lib_run_single.run_single_example(agent, env,  example_json,max_steps, input_instructions, args, example_result_dir,scores)
+    except Exception as e:
+        logger.error(f"Exception in {example_id}: {e}")
+        env.controller.end_recording(os.path.join(example_result_dir, "recording.mp4"))
+        with open(os.path.join(example_result_dir, "traj.jsonl"), "a") as f:
+            f.write(json.dumps({
+                "Error": f"Time limit exceeded in {domain}/{example_id}"
+            }))
+            f.write("\n")
 
     env.close()
-    # logger.info(f"UPDATED SCORES: {scores}")
-        
     if len(scores) == 0:
-        logger.info("No examples finished.")
-    else:
-        logger.info(f"Average score: {sum(scores) / len(scores)}")
+        logger.info("unable to complete deep help task")
+    # else:
+    #     logger.info(f"Average score: {sum(scores) / len(scores)}")
+    
+    # lets close the task:
 
+    #complete the task
+    update_url = f'http://0.0.0.0:8500/taskCompleted'
+    headers = {
+       
+        "Content-Type": "application/json"
+    }
+    requests.get(update_url, headers=headers)
 
 def get_unfinished(action_space, use_model, observation_type, result_dir, trial_id, total_file_json):
     target_dir = os.path.join(result_dir, action_space, observation_type, use_model, trial_id)
@@ -468,4 +446,4 @@ if __name__ == '__main__':
         args.trial_id,
         test_file_list_worker
     )
-    test(args, test_file_list_worker)
+    execute_for_deephelp(args, test_file_list_worker)

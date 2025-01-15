@@ -21,24 +21,32 @@ class GPT4VWrapperError(Exception):
 
 class GPT4VisionAzure:
 
-    def __init__(self, azure_key_path=None, endpoint=None):
-
-        if azure_key_path is None:
-            self.api_key = os.getenv("AZURE_API_KEY")
-        else:
-            with open(azure_key_path, "r") as key_file:
-                self.api_key = key_file.read().strip()
-
+    def __init__(self, azure_key_path=None, endpoint=None,agent_settings=None):
         self.headers = {
-            "Content-Type": "application/json",
-            "api-key": self.api_key,
+            "Content-Type": "application/json"
         }
-
-        if endpoint is None:
-            self.endpoint = os.environ.get("AZURE_ENDPOINT")
-        else:
-            self.endpoint = endpoint
         
+        if agent_settings is not None and len(agent_settings) > 0:
+            auth_setting = agent_settings["llm_auth"]
+            self.endpoint = agent_settings["llm_endpoint"]
+            if (auth_setting["type"] == "identity"):
+                self.headers["Authorization"] = auth_setting["token"]
+            else:
+                self.headers["api-key"] = auth_setting["token"]
+        else:
+            if azure_key_path is None:
+                self.api_key = os.getenv("AZURE_API_KEY")
+            else:
+                with open(azure_key_path, "r") as key_file:
+                    self.api_key = key_file.read().strip()
+
+            if endpoint is None:
+                self.endpoint = os.environ.get("AZURE_ENDPOINT")
+            else:
+                self.endpoint = endpoint
+
+            self.headers["api-key"] = self.api_key
+
     def encode_image(self, image: Union[str, Image.Image], format) -> str:
         if isinstance(image, str):
             with open(image, "rb") as image_file:
