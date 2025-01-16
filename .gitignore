@@ -288,3 +288,6 @@ src/win-arena-container/client/.vscode/launch.json
 src/win-arena-container/vm/setup/agents.json
 src/win-arena-container/vm/setup/mm_agents/*
 src/win-arena-container/vm/setup/Logs.txt
+
+# Arena service
+/src/win-arena-container/client/WorkerLayer/*
