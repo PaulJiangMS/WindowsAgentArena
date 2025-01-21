@@ -184,7 +184,7 @@ def execute_for_deephelp(
         cfg_args["agent_name"] = agent_settings.get("agent_name", cfg_args["agent_name"])
             
     if cfg_args["agent_name"] == "navi":
-        if cfg_args["som_origin"] in ["internal", "a11y", "mixed", "omni", "mixed-omni"]:
+        if cfg_args["som_origin"] in ["a11y", "omni", "mixed-omni"]:
             som_config = None
         elif cfg_args["som_origin"] in ["oss", "mixed-oss"]:
             som_config = {
