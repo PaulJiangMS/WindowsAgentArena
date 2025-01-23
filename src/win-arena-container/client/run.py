@@ -142,8 +142,6 @@ def execute_for_deephelp(
     max_steps = args.max_steps
 
     input_instructions = args.instruction
-    # log args
-    logger.info("Args: %s", args)
     # set wandb project
     cfg_args = \
     {

@@ -34,7 +34,6 @@ def run_single_example(agent, env, example, max_steps, instruction, args, exampl
     from mm_agents.server_agents.agent import ServerAgent
     if isinstance(agent, ServerAgent):
         logger.info("Agent: Running server agent %s...", agent.agent_name)
-        logger.info("Agent settings: %s...", agent.agent_settings)
         env.controller.run_agent(agent.agent_name, instruction, agent.agent_settings)
         
     else:
