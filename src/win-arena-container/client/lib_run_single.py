@@ -96,3 +96,81 @@ def run_single_example(agent, env, example, max_steps, instruction, args, exampl
     # Record final results
     recorder.record_end(result, start_time)
     # env.controller.end_recording(os.path.join(example_result_dir, "recording.mp4"))
+
+###### Pika onboard ######
+from mm_agents.pika.planner_agent import Agent
+def run_single_pika_example(agent: Agent, env, example, max_steps, instruction, args, example_result_dir, scores):
+    env.reset()
+
+    # Try to update the resolution
+    env.controller.execute_python_command(f"""
+import ctypes
+
+class DEVMODE(ctypes.Structure):
+    _fields_ = [("dmDeviceName", ctypes.c_wchar * 32), ("dmSpecVersion", ctypes.c_ushort), 
+                ("dmDriverVersion", ctypes.c_ushort), ("dmSize", ctypes.c_ushort),
+                ("dmDriverExtra", ctypes.c_ushort), ("dmFields", ctypes.c_ulong),
+                ("dmPositionX", ctypes.c_long), ("dmPositionY", ctypes.c_long),
+                ("dmDisplayOrientation", ctypes.c_ulong), ("dmDisplayFixedOutput", ctypes.c_ulong),
+                ("dmColor", ctypes.c_short), ("dmDuplex", ctypes.c_short),
+                ("dmYResolution", ctypes.c_short), ("dmTTOption", ctypes.c_short),
+                ("dmCollate", ctypes.c_short), ("dmFormName", ctypes.c_wchar * 32),
+                ("dmLogPixels", ctypes.c_ushort), ("dmBitsPerPel", ctypes.c_ulong),
+                ("dmPelsWidth", ctypes.c_ulong), ("dmPelsHeight", ctypes.c_ulong),
+                ("dmDisplayFlags", ctypes.c_ulong), ("dmDisplayFrequency", ctypes.c_ulong),
+                ("dmICMMethod", ctypes.c_ulong), ("dmICMIntent", ctypes.c_ulong),
+                ("dmMediaType", ctypes.c_ulong), ("dmDitherType", ctypes.c_ulong),
+                ("dmReserved1", ctypes.c_ulong), ("dmReserved2", ctypes.c_ulong),
+                ("dmPanningWidth", ctypes.c_ulong), ("dmPanningHeight", ctypes.c_ulong)]
+
+dm = DEVMODE()
+dm.dmSize = ctypes.sizeof(DEVMODE)
+ctypes.windll.user32.EnumDisplaySettingsW(None, 0, ctypes.byref(dm))
+
+dm.dmPelsWidth = {args.screen_width}
+dm.dmPelsHeight = {args.screen_height}
+result = ctypes.windll.user32.ChangeDisplaySettingsW(ctypes.byref(dm), 0)
+if result != 0:
+    raise Exception("Failed to change resolution")
+""")
+
+    env.controller.execute_python_command("pyautogui.hotkey('win', 'ctrl', 'f4'); time.sleep(1); pyautogui.hotkey('win', 'ctrl', 'd')")
+    obs = env.reset(task_config=example)
+    step_idx = 0
+
+    #env.controller.start_recording()
+    start_time = datetime.datetime.now()
+    
+    # TODO: Fix Recorder for Pika which will save the trajectory as a JSON & HTML in {example_result_dir}/traj.(jsonl,html)
+    # # Initialize recorder, which will save the trajectory as a JSON & HTML in {example_result_dir}/traj.(jsonl,html)
+    # recorder = TrajectoryRecorder(example_result_dir)
+    
+    # # Record initial state
+    # init_timestamp = start_time.strftime("%Y%m%d@%H%M%S")
+    # recorder.record_init(obs, example, init_timestamp)
+
+    logger.info(f"Agent: Starting to execute the instruction '{instruction}'")
+    # A3: wait for 30 seconds for startup
+    time.sleep(30)
+
+    debug_path = os.path.join(example_result_dir, "debug")
+    agent.chat(message=instruction, debug_path=debug_path)
+
+    logger.info("Agent: Finished executing the instruction")
+
+    logger.info("Running evaluator(s)...")
+    result = env.evaluate()
+    logger.info("Result: %.2f", result)
+    scores.append(result)
+
+    # Ensure that there is no error.txt file in the debug directory
+    if not os.path.exists(os.path.join(debug_path, "error.txt")):
+        with open(os.path.join(example_result_dir, "result.txt"), "w", encoding="utf-8") as f:
+            f.write(f"{result}\n")
+
+    with open(os.path.join(example_result_dir, "time_taken.txt"), "w", encoding="utf-8") as f:
+        f.write(f"{(datetime.datetime.now() - start_time).seconds / 60:.2f} minutes\n")
+    
+    # Record final results
+    # recorder.record_end(result, start_time)
+###### Pika onboard ######

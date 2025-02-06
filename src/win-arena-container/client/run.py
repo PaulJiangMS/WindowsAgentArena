@@ -23,6 +23,9 @@ import time
 from threading import Event
 import signal
 
+from mm_agents.pika.planner_agent import Agent as PikaAgent
+from mm_agents.pika_DataCollection.planner_agent import Agent as PikaAgentDataCollector
+from mm_agents.pika.model import DeepLeo
 
 print("Waiting for the server to start...")
 
@@ -101,7 +104,7 @@ def config() -> argparse.Namespace:
     parser.add_argument("--test_config_base_dir", type=str, default="evaluation_examples_windows")
 
     # lm config
-    parser.add_argument("--model", type=str, default="gpt-4-vision-preview") #gpt-4o-mini or gpt-4-vision-preview or gpt-4o or gpt-4-1106-vision-preview
+    parser.add_argument("--model", type=str, default="gpt-4o") #gpt-4o-mini or gpt-4-vision-preview or gpt-4o or gpt-4-1106-vision-preview
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--top_p", type=float, default=0.9)
     parser.add_argument("--max_tokens", type=int, default=1500)
@@ -205,6 +208,11 @@ def execute_for_deephelp(
             temperature=args.temperature,
             agent_settings=agent_settings
         )
+    elif cfg_args["agent_name"] == "pika":
+        agent = None
+        cfg_args["observation_type"] = "screenshot"
+        args.observation_type = "screenshot"
+        args.a11y_backend = "win32"
     else:
         from mm_agents.server_agents.agent import ServerAgent
         if agent_settings is not None and len(agent_settings) > 0:
@@ -260,7 +268,12 @@ def execute_for_deephelp(
     os.makedirs(example_result_dir, exist_ok=True)
     #example start running
     try:
-        lib_run_single.run_single_example(agent, env,  example_json,max_steps, input_instructions, args, example_result_dir,scores)
+        if cfg_args["agent_name"] == "pika":
+            agent = PikaAgent(DeepLeo(), env=env)
+            agent.action_space = "pyautogui"
+            lib_run_single.run_single_pika_example(agent, env, example_json, max_steps, input_instructions, args, example_result_dir, scores)
+        else:
+            lib_run_single.run_single_example(agent, env,  example_json,max_steps, input_instructions, args, example_result_dir,scores)
     except Exception as e:
         logger.error(f"Exception in {example_id}: {e}")
         env.controller.end_recording(os.path.join(example_result_dir, "recording.mp4"))
