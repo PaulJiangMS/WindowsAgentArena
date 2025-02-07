@@ -8,17 +8,17 @@ import json
 import re
 
 class GPT4V_Planner():
-    def __init__(self, server="azure", model="gpt-4o", temperature=1.0):
-        self.server = server
+    def __init__(self, agent_settings={}, model="gpt-4o", temperature=1.0):
+        self.server = agent_settings.get("llm_type", "azure")
         self.model = model
         self.temperature = temperature
 
         if self.server=="azure":
-            self.gpt4v = gpt4v_azure.GPT4VisionAzure()
+            self.gpt4v = gpt4v_azure.GPT4VisionAzure(agent_settings=agent_settings)
         elif self.server=="oai":
-            self.gpt4v = gpt4v_oai.GPT4VisionOAI(self.model)
+            self.gpt4v = gpt4v_oai.GPT4VisionOAI(model=self.model, agent_settings=agent_settings)
         else:
-            raise ValueError(f"Server {server} not supported")
+            raise ValueError(f"Server {self.server} not supported")
 
         # set the initial system message
         self.system_prompt =  planner_messages.planning_system_message

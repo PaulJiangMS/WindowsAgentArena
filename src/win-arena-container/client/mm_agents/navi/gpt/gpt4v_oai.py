@@ -18,10 +18,14 @@ from tenacity import (
 
 class GPT4VisionOAI:  
   
-    def __init__(self, model="gpt-4o"):  
+    def __init__(self, model="gpt-4o", agent_settings=None):  
         self.model = model
         #oad key from environment variable
-        self.api_key = os.getenv("OPENAI_API_KEY")
+        if agent_settings is not None and len(agent_settings) > 0:
+            self.api_key = agent_settings["llm_auth"]["token"]
+        else:
+            self.api_key = os.getenv("OPENAI_API_KEY")
+
         if self.api_key is None:
             print("API key not found in environment variable.")
         self.client = openai.OpenAI(api_key=self.api_key)  

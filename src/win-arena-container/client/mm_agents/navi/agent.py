@@ -72,7 +72,7 @@ def resize_image_openai(image):
 class NaviAgent:
     def __init__(
             self,
-            server: str = "azure",
+            agent_settings = {},
             model: str = "gpt-4o", # openai or "phi3-v"
             som_config = None,
             som_origin = "oss", # "oss", "a11y", "mixed-oss", "omni", "mixed-omni"
@@ -82,7 +82,6 @@ class NaviAgent:
             temperature: float = 0.5,
     ):
         self.action_space = "code_block"
-        self.server = server
         self.model = model
         self.som_origin = som_origin
         if som_config is None:
@@ -99,6 +98,7 @@ class NaviAgent:
         self.prev_window_rect = None
         self.last_image = None
         self.use_last_screen = use_last_screen
+        self.agent_settings=agent_settings
 
         # hard-coded params
         device = "cpu"
@@ -113,9 +113,9 @@ class NaviAgent:
 
         if model == 'phi3-v':
             from mm_agents.navi.gpt.phi3_planner import Phi3_Planner
-            self.gpt4v_planner = Phi3_Planner(server='azure',model='phi3-v',temperature=temperature)
+            self.gpt4v_planner = Phi3_Planner(server=self.agent_settings.get("llm_type", 'azure'),model='phi3-v',temperature=temperature)
         else:
-            self.gpt4v_planner = GPT4V_Planner(server=self.server, model=self.model, temperature=temperature)
+            self.gpt4v_planner = GPT4V_Planner(agent_settings=self.agent_settings, model=self.model, temperature=temperature)
             if use_last_screen:
                 self.gpt4v_planner.system_prompt = planner_messages.planning_system_message_shortened_previmg
         
