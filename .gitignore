@@ -291,3 +291,5 @@ src/win-arena-container/vm/setup/Logs.txt
 
 # Arena service
 /src/win-arena-container/client/WorkerLayer/*
+/src/win-arena-container/client/mm_agents/pika/*
+/src/win-arena-container/client/mm_agents/pika_DataCollection/*
