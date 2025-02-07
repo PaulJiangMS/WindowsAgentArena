@@ -222,7 +222,7 @@ def execute_for_deephelp(
         agent = ServerAgent(agent_name=agent_name, agent_settings=agent_settings)
     
     env = DesktopEnv(
-        action_space=agent.action_space,
+        action_space=agent.action_space if cfg_args["agent_name"] == "navi" else "pyautogui",
         screen_size=(args.screen_width, args.screen_height),
         headless=args.headless,
         require_a11y_tree=args.observation_type in ["a11y_tree", "screenshot_a11y_tree", "som"],
